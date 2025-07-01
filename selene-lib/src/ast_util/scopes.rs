@@ -339,8 +339,8 @@ impl ScopeVisitor {
                 self.read_expression(rhs);
             }
 
-            ast::Expression::Function((name, _)) => {
-                self.read_name(name);
+            ast::Expression::Function(function_box) => {
+                self.read_name(&function_box.0);
             }
 
             ast::Expression::FunctionCall(call) => {
@@ -357,7 +357,7 @@ impl ScopeVisitor {
             ast::Expression::Symbol(symbol) => {
                 if *symbol.token_type()
                     == (TokenType::Symbol {
-                        symbol: Symbol::Ellipse,
+                        symbol: Symbol::Ellipsis,
                     })
                 {
                     self.read_name(symbol);
@@ -433,7 +433,7 @@ impl ScopeVisitor {
         if token.token_kind() == TokenKind::Identifier
             || *token.token_type()
                 == (TokenType::Symbol {
-                    symbol: Symbol::Ellipse,
+                    symbol: Symbol::Ellipsis,
                 })
         {
             self.captured_references.insert(identifier);
@@ -830,11 +830,7 @@ impl Visitor for ScopeVisitor {
 
     fn visit_block(&mut self, block: &ast::Block) {
         if let Some((start, end)) = block.range() {
-            if self
-                .else_blocks
-                .get(&(start.bytes(), end.bytes()))
-                .is_some()
-            {
+            if self.else_blocks.contains(&(start.bytes(), end.bytes())) {
                 self.close_scope(); // close the if or elseif's block
                 self.open_scope(block);
             }
@@ -843,11 +839,7 @@ impl Visitor for ScopeVisitor {
 
     fn visit_block_end(&mut self, block: &ast::Block) {
         if let Some((start, end)) = block.range() {
-            if self
-                .else_blocks
-                .get(&(start.bytes(), end.bytes()))
-                .is_some()
-            {
+            if self.else_blocks.contains(&(start.bytes(), end.bytes())) {
                 self.close_scope();
             }
         }
@@ -886,7 +878,7 @@ impl Visitor for ScopeVisitor {
     }
 
     #[cfg(feature = "roblox")]
-    fn visit_compound_assignment(&mut self, compound_assignment: &ast::types::CompoundAssignment) {
+    fn visit_compound_assignment(&mut self, compound_assignment: &ast::luau::CompoundAssignment) {
         self.read_var(compound_assignment.lhs());
         self.read_expression(compound_assignment.rhs());
     }
@@ -919,7 +911,7 @@ impl Visitor for ScopeVisitor {
         self.current_scope().blocked.push(Cow::Borrowed("..."));
 
         for parameter in body.parameters() {
-            if let ast::Parameter::Ellipse(token) | ast::Parameter::Name(token) = parameter {
+            if let ast::Parameter::Ellipsis(token) | ast::Parameter::Name(token) = parameter {
                 self.define_name(token, range(token));
             }
         }
@@ -1100,8 +1092,8 @@ impl Visitor for ScopeVisitor {
     }
 
     #[cfg(feature = "roblox")]
-    fn visit_type_info(&mut self, type_info: &ast::types::TypeInfo) {
-        if let ast::types::TypeInfo::Module { module, .. } = type_info {
+    fn visit_type_info(&mut self, type_info: &ast::luau::TypeInfo) {
+        if let ast::luau::TypeInfo::Module { module, .. } = type_info {
             self.read_name(module);
         }
     }
